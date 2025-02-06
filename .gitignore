@@ -1,0 +1,11 @@
+.vscode
+.code-workspace
+.micropico
+.DS_Store
+
+XRPLib/
+phew/
+
+secrets
+
+/remote-control/

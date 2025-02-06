@@ -1,0 +1,21 @@
+01-30 notes
+
+best coefficients: 
+Kp_left = 0.003
+Ki_left = 0.01
+Kd_left = 0
+
+Kd seems only to make things worse. 
+
+some Ki testing
+with Ki = 0.01, measure distance traveled when target is 100 mm/s and duration is 10 s
+96cm, 96cm, 96.5cm
+with Ki = 0.015, measure distance traveled when target is 100 mm/s and duration is 10 s
+97.5cm, 97.5cm 
+with Ki = 0.02
+98cm
+with Ki = 0.03
+99cm but oscillated
+
+98With Kp = 0.0035: Ki = 0.02
+98cm but oscillated

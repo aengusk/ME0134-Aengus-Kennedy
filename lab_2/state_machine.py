@@ -5,35 +5,86 @@ from XRPLib.defaults import *
 
 class LineWallFSM:
     def __init__(self):
+        # program flow
         self.state = 'start'
         self.halt = False
+        self.verbosity = ('general', 'on_state_switch', 'follow_line_debug', 'follow_wall_debug')
+        # options: 'general', 'on_state_switch', 'reflectance_debug', 'follow_wall_debug'
+
+        # line following & reflectance sensor
+        self.r_tile = 0.7704468
+        self.r_tape = 0.7367401
+
+        # wall following & rangefinder
         self.rangefinder_readings = []
-
         self.target_wall_dist = 15 # [cm]
-        self.verbosity = ('general', 'on_state_switch', 'follow_line_debug', 'follow_wall_debug') # options: 'general', 'on_state_switch', 'reflectance_debug', 'follow_wall_debug'
-
-        # reflectance:
-        r_tile = 0.7704468
-        r_tape = 0.7367401
-        # self.reflectance_mapping's output is a DifferentialDrive.arcade turn value, where
-        # +1 is left and -1 is right
-        self.reflectance_mapping = akmath.plane(r_tape,r_tile,0, r_tile,r_tape,-1, r_tile,r_tile,1)
-        # alternative:
-        # self.reflectance_mapping = plane(r_tape,r_tape,-1, r_tile,r_tape,0, r_tile,r_tile,1)
 
     ################################
-    ### state functions    
+    ### behavior functions
+    ################################
+
+    states = [
+        'start',
+        'random_walk',
+        'follow_line_find_wall',
+        'follow_wall_ignore_line',
+        'follow_wall_find_line',
+        'follow_line_ignore_wall'
+    ]
+
+    def choose_state(self):
+        starting_state = self.state
+        
+        assert self.state in LineWallFSM.states, 'self.state not found, it may have been typed incorrectly' # @TODO remove
+
+        if self.state == 'start':
+            if board.is_button_pressed():
+                self.state = 'random_walk'
+
+        elif self.state == 'random_walk':
+            if self.there_is_a_line():
+                self.state = 'follow_line_find_wall'
+            elif self.there_is_a_wall():
+                self.state = 'follow_wall_find_line'
+
+        elif self.state == 'follow_line_find_wall':
+            if self.there_is_a_wall():
+                self.state = 'follow_wall_ignore_line'
+            elif not self.there_is_a_line():
+                self.state = 'random_walk'
+        
+        elif self.state == 'follow_wall_ignore_line':
+            raise NotImplementedError
+            if not self.there_is_a_line():
+                self.state = 'follow_wall_find_line'
+            elif not self.there_is_a_wall():
+                raise NotImplementedError
+        
+        elif self.state == 'follow_wall_find_line':
+            if self.there_is_a_line():
+                self.state = 'follow_line_ignore_wall'
+            elif not self.there_is_a_wall():
+                self.state = 'random_walk'
+        
+        elif self.state == 'follow_line_ignore_wall':
+            raise NotImplementedError
+        
+        if 'on_state_switch' in self.verbosity:
+            if starting_state != self.state:
+                print('state switched from {} to {}'.format(starting_state, self.state))
+
+    ################################
+    ### end behavior functions
+    ################################
+
+    ################################
+    ### behavior functions
     ################################
     ### All must be momentary and
     ### non-blocking, as the control
     ### loop takes place in 
     ### self.monitor_states
     ################################
-
-    def start(self):
-        if board.is_button_pressed():
-            if 'on_state_switch' in self.verbosity: print("switching from start to random_walk")
-            self.state = 'random_walk'
 
     def random_walk(self):
         # default behavior: 
@@ -46,15 +97,6 @@ class LineWallFSM:
             pass ## update state 
 
     ################################
-    
-    def follow_line(self):
-        
-        straight = 0.3
-        turn = 0.02 * self.reflectance_mapping(reflectance.get_left(), reflectance.get_right())
-        if 'reflectance_debug' in self.verbosity: 
-            print('reflectance:', reflectance.get_left(), reflectance.get_right())
-            print('arcade', straight, turn)
-        drivetrain.arcade(straight, turn)
 
     def follow_wall(self):
         Kp = 0.03
@@ -65,6 +107,14 @@ class LineWallFSM:
         if 'follow_wall_debug' in self.verbosity: print(self.target_wall_dist, dist, dist_error, Kp*dist_error)
 
         drivetrain.arcade(0.4, Kp*dist_error)
+
+    def follow_line(self):
+        # best so far: base_effort = 0.25; Kp = -3
+        base_effort = 0.25
+        Kp = -4
+        error = reflectance.get_left() - reflectance.get_right()
+        if 'follow_line_debug' in self.verbosity: print(error)
+        drivetrain.set_effort(base_effort - error * Kp, base_effort + error * Kp)
 
     ################################
     ### end state functions
@@ -93,25 +143,23 @@ class LineWallFSM:
         if len(self.rangefinder_readings) > n_to_median:
             self.rangefinder_readings.pop(0)
         return akmath.median(self.rangefinder_readings)
-
-    def reflectance_error(self):
+    
+    def there_is_a_line(self):
         '''
-        synthesizes the value of 
-        the left and right reflectance into
-        a single float that represents
-        the direction the robot should turn
+        returns True iff either reflectance sensor
+        indicates that it sees a line to follow
+        ''' # @TODO filter for reliability
+
+        r_threshold = (self.r_tile + self.r_tape) / 2
+
+        return reflectance.get_left() < r_threshold or reflectance.get_right() < r_threshold
+
+    def there_is_a_wall(self):
         '''
-        r_tile = 0.7704468
-        r_tape = 0.7367401
-
-        r_left = reflectance.get_left()
-        r_right = reflectance.get_right()
-
-        
-
-        reflectance.get_left()
-        reflectance.get_right()
-        raise NotImplementedError
+        returns True iff the rangefinder
+        indicatesd that it sees a wall to follow
+        ''' # @TODO filter for reliability
+        return rangefinder.distance() < 60
 
     ################################
     ### end sensor-based functions
@@ -130,8 +178,9 @@ class LineWallFSM:
     
     def test(self):
         while not self.halt:
-            self.follow_wall()
-            time.sleep(0.2)
+            #self.follow_line()
+            print('there is a line: {}\nthere is a wall: {}\n'.format(self.there_is_a_line(), self.there_is_a_wall()))
+            time.sleep(0.05)
 
 active_fsm = LineWallFSM()
 

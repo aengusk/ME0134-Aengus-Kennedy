@@ -2,6 +2,7 @@ import time
 import random
 import akmath
 from XRPLib.defaults import *
+from Husky.huskylensPythonLibrary import HuskyLensLibrary as Lens
 
 class LineWallFSM:
     def __init__(self):

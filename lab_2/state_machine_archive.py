@@ -10,7 +10,7 @@ class LineWallFSM:
         self.state = 'start'
         self.halt = False
         self.verbosity = ('general', 'on_state_switch', 'follow_line_debug', 'follow_wall_debug')
-        # options: 'general', 'on_state_switch', 'follow_wall_debug'
+        # options: 'general', 'on_state_switch', 'follow_line_debug', 'follow_wall_debug'
 
         # # line following & reflectance sensor
         # self.r_tile = 0.7704468
@@ -32,8 +32,10 @@ class LineWallFSM:
     states = [
         'start',
         'random_walk',
-        'follow_line',
-        'follow_wall'
+        'follow_line_find_wall',
+        'follow_wall_ignore_line',
+        'follow_wall_find_line',
+        'follow_line_ignore_wall'
     ]
 
     def choose_state(self):
@@ -47,22 +49,31 @@ class LineWallFSM:
 
         elif self.state == 'random_walk':
             if self.there_is_a_line():
-                self.state = 'follow_line'
+                self.state = 'follow_line_find_wall'
             elif self.there_is_a_wall():
-                self.state = 'follow_wall'
+                self.state = 'follow_wall_find_line'
 
-        elif self.state == 'follow_line':
-            if not self.there_is_a_line():
-                if self.there_is_a_wall():
-                    self.state = 'follow_wall'
-                else:
-                    self.state = 'random_walk'
+        elif self.state == 'follow_line_find_wall':
+            if self.there_is_a_wall():
+                self.state = 'follow_wall_ignore_line'
+            elif not self.there_is_a_line():
+                self.state = 'random_walk'
         
-        elif self.state == 'follow_wall':
+        elif self.state == 'follow_wall_ignore_line':
+            raise NotImplementedError
+            if not self.there_is_a_line():
+                self.state = 'follow_wall_find_line'
+            elif not self.there_is_a_wall():
+                raise NotImplementedError
+        
+        elif self.state == 'follow_wall_find_line':
             if self.there_is_a_line():
-                self.state = 'follow_line'
+                self.state = 'follow_line_ignore_wall'
             elif not self.there_is_a_wall():
                 self.state = 'random_walk'
+        
+        elif self.state == 'follow_line_ignore_wall':
+            raise NotImplementedError
         
         if 'on_state_switch' in self.verbosity:
             if starting_state != self.state:
@@ -83,12 +94,15 @@ class LineWallFSM:
 
     def random_walk(self):
         # default behavior: 
-        straight = random.uniform(0, 0.5) # a random float from 0 to 1
+        straight = random.uniform(0, 1) # a random float from 0 to 1
         turn = random.uniform(-1, 1)
         drivetrain.arcade(straight, turn)
 
-    def start(self):
-        pass
+        # state transfer behavior: 
+        if rangefinder.distance() < 30:
+            pass ## update state 
+
+    ################################
 
     def follow_wall(self):
         Kp = 0.03
@@ -103,7 +117,7 @@ class LineWallFSM:
     def follow_line(self):
         # Line following parameters
         base_effort = 0.375
-        Kp = -0.005  # Proportional gain for HuskyLens line following
+        Kp = -0.01  # Proportional gain for HuskyLens line following
         target_x = 160  # Target x-coordinate (center of camera view)
 
         # Get line position from HuskyLens
@@ -212,10 +226,6 @@ class LineWallFSM:
             print('self.state is: ')
             print(getattr(self, 'state'))
 
-            # Choose next state based on conditions
-            self.choose_state()
-            
-            # Execute current state's behavior
             getattr(self, self.state)()
             # this line executes the function whose name 
             # is the current value of the self.state string
@@ -229,7 +239,7 @@ class LineWallFSM:
 active_fsm = LineWallFSM()
 
 try:
-    active_fsm.run()
+    active_fsm.test()
 except KeyboardInterrupt:
     drivetrain.stop()
     if 'general' in active_fsm.verbosity: print('stopped')

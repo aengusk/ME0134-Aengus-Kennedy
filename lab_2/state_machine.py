@@ -10,7 +10,7 @@ class LineWallFSM:
         self.state = 'start'
         self.halt = False
         self.verbosity = ('general', 'on_state_switch', 'follow_line_debug', 'follow_wall_debug')
-        # options: 'general', 'on_state_switch', 'follow_wall_debug'
+        # options: 'general', 'on_state_switch', 'follow_line_debug', 'follow_wall_debug'
 
         # # line following & reflectance sensor
         # self.r_tile = 0.7704468
@@ -21,9 +21,12 @@ class LineWallFSM:
         # Put HuskyLens is in line tracking mode
         self.husky.line_tracking_mode()
 
+        # Line position median filter
+        self.line_x_readings = []
+
         # wall following & rangefinder
         self.rangefinder_readings = []
-        self.target_wall_dist = 15 # [cm]
+
 
     ################################
     ### behavior functions
@@ -42,8 +45,9 @@ class LineWallFSM:
         assert self.state in LineWallFSM.states, 'self.state not found, it may have been typed incorrectly' # @TODO remove
 
         if self.state == 'start':
-            if board.is_button_pressed():
-                self.state = 'random_walk'
+            self.state = 'random_walk'
+            # if board.is_button_pressed():
+            #     self.state = 'random_walk'
 
         elif self.state == 'random_walk':
             if self.there_is_a_line():
@@ -83,80 +87,51 @@ class LineWallFSM:
 
     def random_walk(self):
         # default behavior: 
-        straight = random.uniform(0, 0.5) # a random float from 0 to 1
-        turn = random.uniform(-1, 1)
+        straight = 0.5
+        turn = random.uniform(-0.5, 0.5)
         drivetrain.arcade(straight, turn)
 
     def start(self):
         pass
 
     def follow_wall(self):
+        base_effort = 0.35
         Kp = 0.03
+        target_wall_dist = 15 # [cm]
         dist = self.median_distance() # in [cm]
 
-        dist_error = self.target_wall_dist - dist
+        dist_error = target_wall_dist - dist
 
-        if 'follow_wall_debug' in self.verbosity: print(self.target_wall_dist, dist, dist_error, Kp*dist_error)
+        if 'follow_wall_debug' in self.verbosity:
+            print(target_wall_dist, dist, dist_error, Kp*dist_error)
 
-        drivetrain.arcade(0.4, Kp*dist_error)
+        drivetrain.set_effort(base_effort - Kp*dist_error, base_effort + Kp*dist_error)
 
     def follow_line(self):
         # Line following parameters
-        base_effort = 0.375
-        Kp = -0.005  # Proportional gain for HuskyLens line following
+        base_effort = 0.35
+        Kp = -0.002  # Proportional gain for HuskyLens line following
         target_x = 160  # Target x-coordinate (center of camera view)
 
-        # Get line position from HuskyLens
-        state = self.husky.command_request_arrows() # type: List[List[int]] # type: ignore
-        # Calculate error from line position
-        if len(state) > 0:
-            state_vector = state[0]
-            # x1 and x2 are the left and right points of the line
-            state_x1 = state_vector[0]  # x1
-            state_x2 = state_vector[2]  # x2
-            
-            # Calculate center position of the line
-            x = (state_x1 + state_x2) / 2
-            
-            # Calculate error (difference from target position)
-            error = x - target_x
-            
-            if 'follow_line_debug' in self.verbosity:
-                print(f"Line position: {x}, Error: {error}")
-        else:
-            error = 0
-        # Apply proportional control and drive
-        # Negative Kp because we want to turn in opposite direction of error
-        turn = Kp * error
+        # # Get filtered line position
+        # x = self.median_line_position()
         
-        # Set motor efforts using arcade drive
-        # base_effort for forward motion, turn for steering
-        drivetrain.arcade(base_effort, turn)
+        state = self.husky.command_request_arrows() # type: List[List[int]] # type: ignore
         if len(state) > 0:
-            state_vector = state[0]
-            # x1 and x2 are the left and right points of the line
-            state_x1 = state_vector[0]  # x1
-            state_x2 = state_vector[2]  # x2
-            
-            # Calculate center position of the line
-            x = (state_x1 + state_x2) / 2
-            
-            # Calculate error (difference from target position)
-            error = x - target_x
+            x2 = state[0][2]
+            error = x2 - target_x
             
             if 'follow_line_debug' in self.verbosity:
-                print(f"Line position: {x}, Error: {error}")
+                print(f"Arrow tip x2: {x2}, Error: {error}")
             
-            # Apply proportional control
-            # Negative Kp because we want to turn in opposite direction of error
-            turn = Kp * error
-            
-            # Set motor efforts using arcade drive
-            # base_effort for forward motion, turn for steering
-            drivetrain.arcade(base_effort, turn)
         else:
-            # If no line detected, stop
-            drivetrain.stop()
+            # If no line detected, drive straight
+            error = 0
+            if 'follow_line_debug' in self.verbosity:
+                print(f"No line detected, driving straight")
+        turn = Kp * error
+        # error is positive means turn right; error is negative means turn left
+        drivetrain.set_effort(base_effort - turn, base_effort + turn)
 
     ################################
     ### end state functions
@@ -165,6 +140,26 @@ class LineWallFSM:
     ################################
     ### sensor-based functions
     ################################
+
+    def median_line_position(self):
+        '''
+        returns the median of the last n_to_median line position readings
+        '''
+        n_to_median = 5
+        state = self.husky.command_request_arrows() # type: List[List[int]] # type: ignore
+        if len(state) > 0:
+            state_vector = state[0]
+            x0, x1 = state_vector[0], state_vector[2]
+            if 'follow_line_debug' in self.verbosity:
+                print(f'x0: {x0}, x1: {x1}')
+            current_reading = (x0 + x1)/2
+            self.line_x_readings.append(current_reading)
+            if len(self.line_x_readings) < n_to_median:
+                return self.median_line_position()
+            if len(self.line_x_readings) > n_to_median:
+                self.line_x_readings.pop(0)
+            return akmath.median(self.line_x_readings)
+        return None
 
     def median_distance(self):
         '''

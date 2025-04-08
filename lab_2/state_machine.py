@@ -45,28 +45,28 @@ class LineWallFSM:
         assert self.state in LineWallFSM.states, 'self.state not found, it may have been typed incorrectly' # @TODO remove
 
         if self.state == 'start':
-            self.state = 'random_walk'
-            # if board.is_button_pressed():
-            #     self.state = 'random_walk'
+            if board.is_button_pressed():
+                self.state = 'random_walk'
 
         elif self.state == 'random_walk':
-            if self.there_is_a_line():
-                self.state = 'follow_line'
-            elif self.there_is_a_wall():
+            if self.there_is_a_wall():
                 self.state = 'follow_wall'
+            elif self.there_is_a_line():
+                self.state = 'follow_line'
 
         elif self.state == 'follow_line':
             if not self.there_is_a_line():
-                if self.there_is_a_wall():
+                if self.there_is_a_wall():  
                     self.state = 'follow_wall'
                 else:
                     self.state = 'random_walk'
         
         elif self.state == 'follow_wall':
-            if self.there_is_a_line():
-                self.state = 'follow_line'
-            elif not self.there_is_a_wall():
-                self.state = 'random_walk'
+            if not self.there_is_a_wall():
+                if self.there_is_a_line():
+                    self.state = 'follow_line'
+                else:
+                    self.state = 'random_walk'
         
         if 'on_state_switch' in self.verbosity:
             if starting_state != self.state:
@@ -87,9 +87,10 @@ class LineWallFSM:
 
     def random_walk(self):
         # default behavior: 
-        straight = 0.5
-        turn = random.uniform(-0.5, 0.5)
+        straight = 0.6
+        turn = random.uniform(-1, 0.8) # left (positive); right (negative)
         drivetrain.arcade(straight, turn)
+        time.sleep(0.2)
 
     def start(self):
         pass
@@ -97,7 +98,7 @@ class LineWallFSM:
     def follow_wall(self):
         base_effort = 0.35
         Kp = 0.03
-        target_wall_dist = 15 # [cm]
+        target_wall_dist = 20 # [cm]
         dist = self.median_distance() # in [cm]
 
         dist_error = target_wall_dist - dist
@@ -109,7 +110,7 @@ class LineWallFSM:
 
     def follow_line(self):
         # Line following parameters
-        base_effort = 0.35
+        base_effort = 0.4 # @TODO  0.35 works but is slow
         Kp = -0.002  # Proportional gain for HuskyLens line following
         target_x = 160  # Target x-coordinate (center of camera view)
 
@@ -193,8 +194,8 @@ class LineWallFSM:
         '''
         returns True iff the rangefinder
         indicatesd that it sees a wall to follow
-        ''' # @TODO filter for reliability
-        return rangefinder.distance() < 60
+        ''' # @DONE filter for reliability
+        return self.median_distance() < 40
 
     ################################
     ### end sensor-based functions
@@ -202,8 +203,6 @@ class LineWallFSM:
 
     def run(self):
         while not self.halt:
-            time.sleep(0.5)
-
             print('self.state is: ')
             print(getattr(self, 'state'))
 
@@ -217,7 +216,7 @@ class LineWallFSM:
     
     def test(self):
         while not self.halt:
-            self.follow_line()
+            self.follow_wall()
             #print('there is a line: {}\nthere is a wall: {}\n'.format(self.there_is_a_line(), self.there_is_a_wall()))
             time.sleep(0.05)
 

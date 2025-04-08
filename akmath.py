@@ -25,7 +25,7 @@ def mapping(x1, x2, y1, y2):
 def plane(x1,y1,z1, x2,y2,z2, x3,y3,z3):
     '''
     returns a linear floating-point function f(x,y) such that 
-    f(x1,y1) == z1; f(x2,y2) == z2, and f(x3,y3) == z3
+    f(x1,y1) == z1 and f(x2,y2) == z2 and f(x3,y3) == z3
     '''
 
     # Compute normal vector components

@@ -18,6 +18,7 @@ def mapping(x1, x2, y1, y2):
     returns a linear floating-point function f(x) such that 
     f(x1) == y1 and f(x2) == y2
     '''
+    
     m = (y2 - y1) / (x2 - x1)
     
     return lambda x: m*(x-x1) + y1

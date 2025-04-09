@@ -42,3 +42,42 @@ def plane(x1,y1,z1, x2,y2,z2, x3,y3,z3):
 
     # Return the function f(x, y)
     return lambda x, y: (D - A * x - B * y) / C
+
+
+def matmul(A, B):
+    '''
+    returns the product of two matrices A and B,
+    each of type list or tuple of ints or floats.
+    Also handles matrix-vector multiplication where B is a vector (1D list/tuple).
+    Type checking is not fully implemented. 
+    '''
+    if not isinstance(A, (list, tuple)):
+        raise ValueError("A must be a list or tuple")
+    if not isinstance(B, (list, tuple)):
+        raise ValueError("B must be a list or tuple")
+        
+    # Handle vector case - convert B to column vector if it's a 1D list/tuple
+    B_is_vector = not any(isinstance(x, (list, tuple)) for x in B)
+    if B_is_vector:
+        B = [[x] for x in B]
+        
+    result = [[sum(A[i][k] * B[k][j] for k in range(len(B))) for j in range(len(B[0]))] for i in range(len(A))]
+    
+    # If B was a vector, convert result back to 1D
+    if B_is_vector:
+        return [row[0] for row in result]
+    return result
+
+def I(n):
+    '''
+    returns the n x n identity matrix
+    '''
+    return [[1 if i == j else 0 for j in range(n)] for i in range(n)]
+
+def _test():
+    A = ([1,3], (0, 0))
+    x = (9, 11)
+    print(matmul(A, x))
+
+if __name__ == "__main__":
+    _test()

@@ -68,6 +68,45 @@ def matmul(A, B):
         return [row[0] for row in result]
     return result
 
+def mat_inverse(A):
+    # Make sure A is square
+    n = len(A)
+    for row in A:
+        if len(row) != n:
+            raise ValueError("Matrix must be square")
+
+    # Create augmented matrix [A | I]
+    AM = [list(row) + [float(i == j) for j in range(n)] for i, row in enumerate(A)]
+
+    # Perform Gauss-Jordan elimination
+    for i in range(n):
+        # Find pivot
+        pivot = AM[i][i]
+        if pivot == 0:
+            # Try to swap with a lower row
+            for j in range(i + 1, n):
+                if AM[j][i] != 0:
+                    AM[i], AM[j] = AM[j], AM[i]
+                    pivot = AM[i][i]
+                    break
+            else:
+                raise ValueError("Matrix is singular and cannot be inverted")
+
+        # Normalize pivot row
+        for j in range(2 * n):
+            AM[i][j] /= pivot
+
+        # Eliminate other rows
+        for k in range(n):
+            if k != i:
+                factor = AM[k][i]
+                for j in range(2 * n):
+                    AM[k][j] -= factor * AM[i][j]
+
+    # Extract inverse matrix from augmented matrix
+    inverse = [row[n:] for row in AM]
+    return inverse
+
 def I(n):
     '''
     returns the n x n identity matrix

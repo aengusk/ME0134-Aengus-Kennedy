@@ -18,11 +18,20 @@ def save_data():
         for row in data:
             f.write(f"{row[0]},{row[1]},{row[2]},{row[3]}\n")
 
-print('about to start logging')
+def drive_forward(dist, speed = 100): # where dist is in cm and speed is in cm per second
+    # @TODO test
+    start_time = time.ticks_ms()
+    drivetrain.set_speed(speed, speed) # 100 cm per second
+    while time.ticks_ms() - start_time < dist/speed * 1000:
+        log()
+        time.sleep(0.1)
+    drivetrain.stop()
 
-for i in range(100):
-    log()
-    time.sleep(0.1)
+def turn(angle, speed = 100): # where angle is in degrees and speed is in cm per second
+    raise NotImplementedError
 
-save_data()
-print('saved data')
+def main():
+    drive_forward(20, 50)
+
+if __name__ == '__main__':
+    main()

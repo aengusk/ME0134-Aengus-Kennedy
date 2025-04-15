@@ -19,7 +19,6 @@ def save_data():
             f.write(f"{row[0]},{row[1]},{row[2]},{row[3]}\n")
 
 def drive_forward(dist, speed = 100): # where dist is in cm and speed is in cm per second
-    # @TODO test
     start_time = time.ticks_ms()
     drivetrain.set_speed(speed, speed) # 100 cm per second
     while time.ticks_ms() - start_time < dist/speed * 1000:

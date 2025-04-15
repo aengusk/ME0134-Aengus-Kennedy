@@ -68,6 +68,13 @@ def matmul(A, B):
         return [row[0] for row in result]
     return result
 
+def matsum(A, B):
+    '''
+    returns the sum of two matrices A and B,
+    each of type list or tuple of ints or floats.
+    '''
+    return [list(map(sum, zip(*rows))) for rows in zip(A, B)]
+
 def mat_inverse(A):
     # Make sure A is square
     n = len(A)

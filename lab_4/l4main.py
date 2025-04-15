@@ -25,9 +25,18 @@ def drive_forward(dist, speed = 100): # where dist is in cm and speed is in cm p
         log()
         time.sleep(0.1)
     drivetrain.stop()
+    drivetrain.left_motor.speedController.clear_history()
+    drivetrain.right_motor.speedController.clear_history()
 
-def turn(angle, speed = 100): # where angle is in degrees and speed is in cm per second
-    raise NotImplementedError
+def turn(dist, speed = 100): # where angle is in degrees and speed is in cm per second
+    start_time = time.ticks_ms()
+    drivetrain.set_speed(speed, -speed)
+    while time.ticks_ms() - start_time < dist/speed * 1000:
+        log()
+        time.sleep(0.1)
+    drivetrain.stop()
+    drivetrain.left_motor.speedController.clear_history()
+    drivetrain.right_motor.speedController.clear_history()
 
 def main():
     drive_forward(20, 50)

@@ -11,3 +11,7 @@ phew/
 secrets
 
 /remote-control/
+
+~$*.docx
+~$*.xlsx
+~$*.pptx

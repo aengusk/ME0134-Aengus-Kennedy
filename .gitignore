@@ -12,6 +12,7 @@ secrets
 
 /remote-control/
 
+*.tmp
 ~$*.docx
 ~$*.xlsx
 ~$*.pptx
